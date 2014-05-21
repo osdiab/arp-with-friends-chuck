@@ -1,5 +1,5 @@
 // arp.ck
-["localhost", "spam.local"] @=> string slaves[];
+["localhost"] @=> string slaves[];
 //["localhost",  "albacore.local", "foiegras.local","empanada.local","donut.local","chowder.local
 //","bahnmi.local"] @=> string slaves[];
 slaves.size() => int NUM_SLAVES;
@@ -29,18 +29,18 @@ float gains[NUM_KEYS];
 0.8 => float masterGain;
 0.1 => float masterMix;
 
-250 :: ms => dur defaultTempo;
+40 :: ms => dur defaultTempo;
 defaultTempo => dur tempo;
 
-[0, 4, 7, 11] @=> int major[];
-[0, 3, 7, 10] @=> int minor[];
-[0, 4, 7, 10] @=> int majorDom[];
-[0, 4, 7, 9] @=> int majorSix[];
-[0, 4, 7, 10] @=> int majorNine[];
-[0, 4, 7, 9] @=> int majorSixN[];
-[0, 3, 7, 10] @=> int minorSix[];
-[0, 3, 6, 10] @=> int halfDim[];
-[0, 3, 6, 9] @=> int fullDim[];
+//[0, 4, 7, 11] @=> int major[];
+//[0, 3, 7, 10] @=> int minor[];
+//[0, 4, 7, 10] @=> int majorDom[];
+//[0, 4, 7, 9] @=> int majorSix[];
+//[0, 4, 7, 10] @=> int majorNine[];
+//[0, 4, 7, 9] @=> int majorSixN[];
+//[0, 3, 7, 10] @=> int minorSix[];
+//[0, 3, 6, 10] @=> int halfDim[];
+//[0, 3, 6, 9] @=> int fullDim[];
 
 fun void sendKeys() {
     for (0 => int j; j < NUM_SLAVES; j++) {
@@ -122,11 +122,10 @@ fun void setupListeners() {
 }
 
 fun void kbHandler() {
-       <<<"hi">>>;
-	while(true) {
-
-		kb => now;
-		while(kb.recv(kmsg)) {
+    <<<"hi">>>;
+    while(true) {
+        kb => now;
+        while(kb.recv(kmsg)) {
             <<<kmsg.ascii>>>;
 
             if (kmsg.isButtonDown()) {
@@ -158,36 +157,35 @@ fun void kbHandler() {
                 }
             }
         }
-	}
+    }
 }
 
 fun void mouseHandler() {
     <<< "mouse handler">>>;
-	while(true) {
-		mouse => now;
-		while(mouse.recv(mmsg)) {
+    while(true) {
+        mouse => now;
+        while(mouse.recv(mmsg)) {
             <<<mmsg.deltaX>>>;
             <<<mmsg.deltaY>>>;
 
-			if (mmsg.deltaX > 0) {
+            if (mmsg.deltaX > 0) {
                 if(tempo > 10 :: ms) {
                     tempo / 1.001 => tempo;
                 }
-			}
-			if (mmsg.deltaX < 0) {
+            }
+            if (mmsg.deltaX < 0) {
                 if(tempo < 1000 :: ms) {
                     tempo * 1.001 => tempo;
-				}
-			}
-			if (mmsg.deltaY > 0) {
+                }
+            }
+            if (mmsg.deltaY > 0) {
                 // increase something
-			}
-			if (mmsg.deltaY < 0) {
+            }
+            if (mmsg.deltaY < 0) {
                 // decrease something
-			}
-
-		}
-	}
+            }
+        }
+    }
 }
 
 

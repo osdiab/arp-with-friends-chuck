@@ -1,5 +1,6 @@
 // constants
 121 => int NUM_KEYS; // number of unique midi signals my LPK25 gives
+10 => int MAX_CONCURRENT;
 
 // Sentinels
 -1 => int END;
@@ -8,7 +9,52 @@
 // State
 int keys[NUM_KEYS];
 float gains[NUM_KEYS];
+int curKeys[MAX_CONCURRENT];
+int keysPlaying;
+int lastKeyFilled;
+
+fun void clearKeys() {
+    0 => keysPlaying;
+    0 => lastKeyFilled;
+    for (0 => int i; i < NUM_KEYS; ++i) {
+        0 => keys[i];
+        0 => gains[i];
+    }
+
+    for (0 => int i; i < MAX_CONCURRENT; ++i) {
+        -1 => curKeys[i];
+    }
+}
+clearKeys();
+
 0 => float masterGain;
+Math.random2(1, 6) => int rate;
+
+// setup instruments
+SinOsc oscs[dac.channels()];
+ADSR adsrs[dac.channels()];
+for (0 => int i; i < dac.channels(); ++i) {
+    oscs[i] => adsrs[i] => dac;
+    adsrs[i].set(10::ms, 50::ms, 0, 20::ms);
+}
+
+fun void triggerNote() {
+    if (!keysPlaying) {
+        return;
+    }
+
+    Math.random2(0, dac.channels() - 1) => int channel;
+
+    Math.random2(0, lastKeyFilled - 1) => int randomIndex;
+    curKeys[randomIndex] => int thisKey;
+    gains[thisKey] => float thisGain;
+
+    Std.mtof(thisKey) => oscs[channel].freq;
+    thisGain => oscs[channel].gain;
+    adsrs[channel].keyOn();
+    100::ms => now;
+    adsrs[channel].keyOff();
+}
 
 fun void evtListener() {
     OscRecv recv;
@@ -21,27 +67,46 @@ fun void evtListener() {
 
     // receive messages
     while (true) {
+        // get tap number
         beginEvt => now;
+        int tap;
         while (beginEvt.nextMsg() != 0) {
-            beginEvt.getInt() => int tap;
+            beginEvt.getInt() => tap;
             <<< "tap! ", tap >>>;
         }
 
+        // get keys playing
         keyEvt => now;
-
+        0 => int curIter;
         while (keyEvt.nextMsg() != 0) {
-            keyEvt.getInt() => int key;
-            keyEvt.getFloat() => float gain;
+            keyEvt.getInt() => int thisKey;
+            keyEvt.getFloat() => float thisGain;
 
-            if (key == SILENCE) {
-                0 => masterGain;
+            if (thisKey == SILENCE) {
+                0 => keysPlaying;
                 break;
-            } else if (key == END) {
+            } else if (thisKey == END) {
                 break;
             }
 
+            if (curIter == 0) {
+                clearKeys();
+            }
+            curIter++;
+
+            1 => keys[thisKey];
+            thisGain => gains[thisKey];
+            1 => keysPlaying;
+            thisKey => curKeys[lastKeyFilled];
+            lastKeyFilled++;
+
             // handle key
-            <<< key, " ", gain >>>;
+            <<< thisKey, " ", thisGain >>>;
+        }
+
+        // decide to make sound
+        if (tap % rate == 0) {
+            spork ~ triggerNote();
         }
     }
 }
