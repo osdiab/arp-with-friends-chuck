@@ -23,14 +23,15 @@ float gains[NUM_KEYS];
 
 // Sentinels
 -1 => int END;
--2 => int SILENCE;
+-2 => int REVERBINESS;
+33 => int TEMPO;
 
-0 => int silenceTriggered;
-0.8 => float masterGain;
-0.1 => float masterMix;
+0 => int reverbTriggered;
+0 => int tempoTriggered;
+0 => float reverbiness;
 
-40 :: ms => dur defaultTempo;
-defaultTempo => dur tempo;
+240 => int defaultTempo;
+defaultTempo => int tempo;
 
 //[0, 4, 7, 11] @=> int major[];
 //[0, 3, 7, 10] @=> int minor[];
@@ -62,14 +63,30 @@ fun void sendKeys() {
     }
 }
 
-fun void sendSilence() {
+fun void sendReverb() {
     for (0 => int j; j < NUM_SLAVES; j++) {
         xmits[j].startMsg("arp/begin, i");
         tap => xmits[j].addInt;
 
         xmits[j].startMsg("arp/key, i, f");
 
-        SILENCE => xmits[j].addInt;
+        REVERBINESS => xmits[j].addInt;
+        reverbiness => xmits[j].addFloat;
+    }
+}
+
+fun void sendTempo() {
+    for (0 => int j; j < NUM_SLAVES; j++) {
+        xmits[j].startMsg("arp/begin, i");
+        tap => xmits[j].addInt;
+
+        xmits[j].startMsg("arp/key, i, f");
+
+        TEMPO => xmits[j].addInt;
+        0 => xmits[j].addFloat;
+
+        xmits[j].startMsg("arp/key, i, f");
+        tempo => xmits[j].addInt;
         0 => xmits[j].addFloat;
     }
 }
@@ -83,38 +100,42 @@ fun void tempoMaster() {
     // define message types
 
     while(true) {
-        if (silenceTriggered) {
-            sendSilence();
-            0 => silenceTriggered;
+        if (reverbTriggered) {
+            sendReverb();
+            0 => reverbTriggered;
+        } else if (tempoTriggered) {
+            sendTempo();
+            0 => tempoTriggered;
         } else {
             sendKeys();
         }
 
         tap++;
-        tempo => now;
+        tempo :: ms => now;
     }
 }
 
 fun void setupListeners() {
     // which keyboard
-    1 => int device;
-    0 => int deviceNum;
+    1 => int mouseNum;
+    0 => int kbNum;
+    0 => int midiNum;
 
     // get from command line
-    if( me.args() ) me.arg(0) => Std.atoi => deviceNum;
+    if( me.args() ) me.arg(0) => Std.atoi => kbNum;
 
     // open mouse (get device number from command line)
-    if( !mouse.openMouse( device ) ) me.exit();
+    if( !mouse.openMouse( mouseNum ) ) me.exit();
     <<< "mouse '", mouse.name(), "' ready" >>>;
 
     // open keyboard
-    if( !kb.openKeyboard( deviceNum ) ) me.exit();
+    if( !kb.openKeyboard( kbNum ) ) me.exit();
     // successful! print name of device
     <<< "keyboard '", kb.name(), "' ready" >>>;
 
     // open midi keyboard
     0 => int midiDevice;
-    if (me.args()) me.arg(0) => Std.atoi => deviceNum;
+    if (me.args()) me.arg(0) => Std.atoi => midiNum;
     if (!midiKb.open(midiDevice)) me.exit();
 
     // print out device that was opened
@@ -150,9 +171,22 @@ fun void kbHandler() {
                     // 9
                 } else if (kmsg.ascii == 32) {
                     // space
-                    1 => silenceTriggered;
                 } else if (kmsg.ascii == 82) {
-                    // R
+                    // R - reverb up
+                    1 => reverbTriggered;
+                    Math.min(1, reverbiness + .05) => reverbiness;
+                } else if (kmsg.ascii == 70) {
+                    // F - reverb down
+                    1 => reverbTriggered;
+                    Math.max(0, reverbiness - .05) => reverbiness;
+                } else if (kmsg.ascii == 71) {
+                    // G - speed down
+                    1 => tempoTriggered;
+                    (tempo * 1.1) $ int => tempo;
+                } else if (kmsg.ascii == 84) {
+                    // T - speed up
+                    1 => tempoTriggered;
+                    (tempo / 1.1) $ int => tempo;
                 }
             }
         }
@@ -167,13 +201,13 @@ fun void mouseHandler() {
             <<<mmsg.deltaY>>>;
 
             if (mmsg.deltaX > 0) {
-                if(tempo > 10 :: ms) {
-                    tempo / 1.001 => tempo;
+                if(tempo > 10) {
+                    tempo / 1.001 $ int => tempo;
                 }
             }
             if (mmsg.deltaX < 0) {
-                if(tempo < 1000 :: ms) {
-                    tempo * 1.001 => tempo;
+                if(tempo < 1000) {
+                    tempo * 1.001 $ int => tempo;
                 }
             }
             if (mmsg.deltaY > 0) {
@@ -216,8 +250,8 @@ fun void midiKbHandler() {
 }
 
 setupListeners();
-spork ~ kbHandler();
 spork ~ mouseHandler();
 spork ~ midiKbHandler();
 spork ~ tempoMaster();
-while(true) {1::ms => now;}
+
+kbHandler();
