@@ -13,7 +13,8 @@ int curKeys[MAX_CONCURRENT];
 int keysPlaying;
 int lastKeyFilled;
 
-50 => int durationMs;
+10 :: ms => dur attack;
+50 :: ms => dur duration;
 .5 => float reverbiness;
 
 fun void clearKeys() {
@@ -38,11 +39,14 @@ SinOsc oscs[dac.channels()];
 ADSR adsrs[dac.channels()];
 NRev revs[dac.channels()];
 
+fun dur calculateRelease() {
+    return (Math.round(reverbiness * 500) $ int) :: ms;
+}
+
 for (0 => int i; i < dac.channels(); ++i) {
     oscs[i] => adsrs[i] => revs[i] => dac;
-    Math.round(reverbiness * 500) $ int => int release;
     reverbiness / 2 => revs[i].mix;
-    adsrs[i].set(10 :: ms, 0 :: ms, 1, release :: ms);
+    adsrs[i].set(attack, 0 :: ms, 1, calculateRelease());
 }
 
 fun void triggerNote() {
@@ -59,9 +63,9 @@ fun void triggerNote() {
     Std.mtof(thisKey) => oscs[channel].freq;
     thisGain / 4 => oscs[channel].gain;
     adsrs[channel].keyOn();
-    durationMs :: ms => now;
+    duration + attack => now;
     adsrs[channel].keyOff();
-    durationMs * 2 :: ms => now;
+    calculateRelease() * 3 => now;
 }
 
 fun void evtListener() {
