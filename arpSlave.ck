@@ -13,6 +13,9 @@ int curKeys[MAX_CONCURRENT];
 int keysPlaying;
 int lastKeyFilled;
 
+50 => int durationMs;
+.5 => float reverbiness;
+
 fun void clearKeys() {
     0 => keysPlaying;
     0 => lastKeyFilled;
@@ -33,9 +36,13 @@ Math.random2(1, 6) => int rate;
 // setup instruments
 SinOsc oscs[dac.channels()];
 ADSR adsrs[dac.channels()];
+NRev revs[dac.channels()];
+
 for (0 => int i; i < dac.channels(); ++i) {
-    oscs[i] => adsrs[i] => dac;
-    adsrs[i].set(10::ms, 50::ms, 0, 20::ms);
+    oscs[i] => adsrs[i] => revs[i] => dac;
+    Math.round(reverbiness * 500) $ int => int release;
+    reverbiness / 2 => revs[i].mix;
+    adsrs[i].set(10 :: ms, 0 :: ms, 1, release :: ms);
 }
 
 fun void triggerNote() {
@@ -50,10 +57,11 @@ fun void triggerNote() {
     gains[thisKey] => float thisGain;
 
     Std.mtof(thisKey) => oscs[channel].freq;
-    thisGain => oscs[channel].gain;
+    thisGain / 4 => oscs[channel].gain;
     adsrs[channel].keyOn();
-    100::ms => now;
+    durationMs :: ms => now;
     adsrs[channel].keyOff();
+    durationMs * 2 :: ms => now;
 }
 
 fun void evtListener() {
@@ -72,7 +80,6 @@ fun void evtListener() {
         int tap;
         while (beginEvt.nextMsg() != 0) {
             beginEvt.getInt() => tap;
-            <<< "tap! ", tap >>>;
         }
 
         // get keys playing

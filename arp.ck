@@ -122,7 +122,6 @@ fun void setupListeners() {
 }
 
 fun void kbHandler() {
-    <<<"hi">>>;
     while(true) {
         kb => now;
         while(kb.recv(kmsg)) {
@@ -161,7 +160,6 @@ fun void kbHandler() {
 }
 
 fun void mouseHandler() {
-    <<< "mouse handler">>>;
     while(true) {
         mouse => now;
         while(mouse.recv(mmsg)) {
