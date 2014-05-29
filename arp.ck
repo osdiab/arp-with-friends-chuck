@@ -1,7 +1,6 @@
-// arp.ck
 ["localhost"] @=> string slaves[];
-//["localhost",  "albacore.local", "foiegras.local","empanada.local","donut.local","chowder.local
-//","bahnmi.local"] @=> string slaves[];
+// ["localhost",  "hamburger.local", "nachos.local", "meatloaf.local", "lasagna.local", "kimchi.local", "jambalaya.local", "icetea.local", "albacore.local", "donut.local","empanada.local","gelato.local"] @=> string slaves[];
+
 slaves.size() => int NUM_SLAVES;
 OscSend xmits[NUM_SLAVES];
 8008 => int port;
@@ -24,7 +23,7 @@ float gains[NUM_KEYS];
 // Sentinels
 -1 => int END;
 -2 => int REVERBINESS;
-33 => int TEMPO;
+-3 => int TEMPO;
 
 0 => int reverbTriggered;
 0 => int tempoTriggered;
@@ -111,6 +110,7 @@ fun void tempoMaster() {
         }
 
         tap++;
+        <<< "." >>>;
         tempo :: ms => now;
     }
 }
@@ -170,6 +170,7 @@ fun void kbHandler() {
                 } else if (kmsg.ascii == 57) {
                     // 9
                 } else if (kmsg.ascii == 32) {
+                    clearKeys();
                     // space
                 } else if (kmsg.ascii == 82) {
                     // R - reverb up
@@ -220,6 +221,11 @@ fun void mouseHandler() {
     }
 }
 
+fun void clearKeys() {
+    for (0 => int i; i < NUM_KEYS; i++) {
+        0 => keys[i];
+    }
+}
 
 fun void midiKbHandler() {
     144 => int MIDI_DOWN;
@@ -239,18 +245,15 @@ fun void midiKbHandler() {
             // get on/off
             if (midiKbMsg.data1 == MIDI_DOWN) {
                 1 => keys[midiFreq];
-            } else {
-                0 => keys[midiFreq];
+                // get gain
+                (midiKbMsg.data3) / 127.0 => gains[midiFreq];
             }
-
-            // get gain
-            (midiKbMsg.data3) / 127.0 => gains[midiFreq];
         }
     }
 }
 
 setupListeners();
-spork ~ mouseHandler();
+// spork ~ mouseHandler();
 spork ~ midiKbHandler();
 spork ~ tempoMaster();
 
