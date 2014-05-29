@@ -26,6 +26,7 @@ int keys[NUM_KEYS];
 float gains[NUM_KEYS];
 int curKeys[MAX_CONCURRENT];
 int keysPlaying;
+0 => int curKeyPlaying;
 int lastKeyFilled;
 0 => float probPlay;
 
@@ -54,6 +55,7 @@ clearKeys();
 
 0 => float masterGain;
 Math.random2(1, 6) => int rate;
+Math.random2(0, 1) => int direction;
 
 // setup instruments
 SinOsc oscs[dac.channels()];
@@ -111,8 +113,13 @@ fun void triggerNote() {
 
     Math.random2(lower, upper) => int randomIndex;
 
-    randomIndex = int keyChosen;
-    // TODO: choose 0 or 1 with probability randomness
+    randomIndex => int keyChosen;
+    if (Math.random2f(0, 1) > randomness) {
+        curKeyPlaying % lastKeyFilled => keyChosen;
+        if (direction) {
+            lastKeyFilled - keyChosen - 1 => keyChosen;
+        }
+    }
 
     // get the key
     curKeys[keyChosen] => int thisKey;
@@ -130,6 +137,7 @@ fun void triggerNote() {
     // wait for sound to resolve
     calculateRelease() * 2 + 200 :: ms => now;
 
+    curKeyPlaying++;
     if (cleared) {
         0 => cleared;
         for (0 => int i; i < dac.channels(); ++i) {
@@ -254,6 +262,8 @@ fun void kbHandler() {
     <<< "Instructions: Press the following keys for these effects:\n\n",
         "\tQ:\t\tBecome more sectional\n",
         "\tA:\t\tBecome less sectional\n",
+        "\tW:\t\tBecome more random (default is fully random)\n",
+        "\tS:\t\tBecome less random\n",
         "\t<space>:\tStop all sound\n",
         "\t<numbers>:\tSet probability of playback. 1 is 10%, 9 is 90%, 0 is 100%\n",
         "\n\n">>>;
@@ -286,20 +296,20 @@ fun void kbHandler() {
                 } else if (kmsg.ascii == 81) {
                     // Q: More section dominance
                     sectionDominance => float oldDom;
-                    Math.min(sectionDominance + .2, 1) => sectionDominance;
+                    Math.min(sectionDominance + .25, 1) => sectionDominance;
                     if (oldDom == sectionDominance) {
-                        <<< "\nMaximum ", "sectionality!" >>>;
+                        <<< "\n", (sectionDominance * 4 $ int), "\tMaximum ", "sectionality!" >>>;
                     } else {
-                        <<< "\nMore ", "sectionality" >>>;
+                        <<< "\n", (sectionDominance * 4 $ int), "\tMore ", "sectionality" >>>;
                     }
                 } else if (kmsg.ascii == 65) {
                     // A: Less section dominance
                     sectionDominance => float oldDom;
-                    Math.max(sectionDominance - .2, 0) => sectionDominance;
+                    Math.max(sectionDominance - .25, 0) => sectionDominance;
                     if (oldDom == sectionDominance) {
-                        <<< "\nMinimum ", "sectionality!" >>>;
+                        <<< "\n", (sectionDominance * 4 $ int), "\tMinimum ", "sectionality!" >>>;
                     } else {
-                        <<< "\nLess ", "sectionality" >>>;
+                        <<< "\n", (sectionDominance * 4 $ int), "\tLess sectionality" >>>;
                     }
                 } else if (kmsg.ascii == 87) {
                     // W: More random

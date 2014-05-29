@@ -110,7 +110,7 @@ fun void tempoMaster() {
         }
 
         tap++;
-        <<< "." >>>;
+        <<< ".", "" >>>;
         tempo :: ms => now;
     }
 }
