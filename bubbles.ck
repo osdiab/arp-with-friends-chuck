@@ -21,6 +21,7 @@ if (me.args() == 1 && me.arg(0) == "debug") {
 -3 => int TEMPO;
 
 // State
+0 => float legato;
 0 => int cleared;
 int keys[NUM_KEYS];
 float gains[NUM_KEYS];
@@ -30,13 +31,11 @@ int keysPlaying;
 int lastKeyFilled;
 0 => float probPlay;
 
-10 :: ms => dur attack;
-50 :: ms => dur duration;
 0 => float reverbiness;
 0 => float sectionDominance;
 1 => float randomness;
 0 => int curKey;
-240 :: ms => dur tempo;
+240 => int tempo;
 
 fun void clearKeys() {
     0 => reverbiness;
@@ -70,10 +69,20 @@ fun dur calculateRelease() {
     }
 }
 
+fun dur calculateAttack() {
+    <<< "atk: ", (((10 + legato * tempo * rate + legato * 100 * (rate))) $ int)>>>;
+    return (((10 + legato * tempo * rate + legato * 100 * (rate))) $ int) :: ms;
+}
+
+fun dur calculateDelay() {
+    return (((50 + legato * tempo * 4) ) $ int) :: ms;
+}
+
 for (0 => int i; i < dac.channels(); ++i) {
     oscs[i] => adsrs[i] => revs[i] => dac;
     reverbiness / 6 => revs[i].mix;
-    adsrs[i].set(attack, 30 :: ms, .7, calculateRelease());
+    adsrs[i].set(calculateAttack(), calculateDelay(), .5, calculateRelease());
+    1 - legato * .5 => adsrs[i].gain;
 }
 
 fun void triggerNote() {
@@ -82,7 +91,8 @@ fun void triggerNote() {
     }
     if (cleared) {
         for (0 => int i; i < dac.channels(); ++i) {
-            adsrs[i].set(attack, 30 :: ms, .7, calculateRelease());
+            adsrs[i].set(calculateAttack(), calculateDelay(), .5, calculateRelease());
+            1 - legato * .5 => adsrs[i].gain;
         }
     }
 
@@ -131,7 +141,7 @@ fun void triggerNote() {
 
     // play
     adsrs[channel].keyOn();
-    duration + attack => now;
+    calculateAttack() + calculateDelay() => now;
     adsrs[channel].keyOff();
 
     // wait for sound to resolve
@@ -141,7 +151,8 @@ fun void triggerNote() {
     if (cleared) {
         0 => cleared;
         for (0 => int i; i < dac.channels(); ++i) {
-            adsrs[i].set(attack, 30 :: ms, .7, calculateRelease());
+            adsrs[i].set(calculateAttack(), calculateDelay(), .5, calculateRelease());
+            1 - legato * .5 => adsrs[i].gain;
         }
     }
 }
@@ -177,12 +188,13 @@ fun void evtListener() {
                 thisGain => reverbiness;
                 for (0 => int i; i < dac.channels(); ++i) {
                     reverbiness / 6 => revs[i].mix;
-                    adsrs[i].set(attack, 30 :: ms, .7, calculateRelease());
+                    adsrs[i].set(calculateAttack(), calculateDelay(), .5, calculateRelease());
+                    1 - legato * .5 => adsrs[i].gain;
                 }
                 break;
             } else if (thisKey == TEMPO) {
                 keyEvt.nextMsg();
-                keyEvt.getInt() :: ms => tempo;
+                keyEvt.getInt() => tempo;
                 keyEvt.getFloat();
                 break;
             }
@@ -264,6 +276,8 @@ fun void kbHandler() {
         "\tA:\t\tBecome less sectional\n",
         "\tW:\t\tBecome more random (default is fully random)\n",
         "\tS:\t\tBecome less random\n",
+        "\tE:\t\tBecome more legato/less staccato (default is staccato)\n",
+        "\tD:\t\tLess legato/more staccato\n",
         "\t<space>:\tStop all sound\n",
         "\t<numbers>:\tSet probability of playback. 1 is 10%, 9 is 90%, 0 is 100%\n",
         "\n\n">>>;
@@ -328,6 +342,34 @@ fun void kbHandler() {
                         <<< "\nMinimum ", "randomness!" >>>;
                     } else {
                         <<< "\nLess ", "randomness" >>>;
+                    }
+                } else if (kmsg.ascii == 69) {
+                    // E: more legato
+                    legato => float oldLegato;
+                    Math.min(legato + .1, 1) => legato;
+                    if (oldLegato == legato) {
+                        <<< "\nMaximum ", "legato!" >>>;
+                    } else {
+                        <<< "\nMore ", "legato!" >>>;
+                    }
+                    for (0 => int i; i < dac.channels(); ++i) {
+                        adsrs[i].set(calculateAttack(), calculateDelay(), .5, calculateRelease());
+                        1 - legato * .5 => adsrs[i].gain;
+                    }
+                } else if (kmsg.ascii == 68) {
+                    // D: less legato
+                    legato => float oldLegato;
+                    Math.max(legato - .1, 0) => legato;
+                    if (oldLegato == legato) {
+                        <<< legato>>>;
+                        <<< "\nMinimum ", "legato!" >>>;
+                    } else {
+                        <<< "\nLess ", "legato!" >>>;
+                    }
+
+                    for (0 => int i; i < dac.channels(); ++i) {
+                        adsrs[i].set(calculateAttack(), calculateDelay(), .5, calculateRelease());
+                        1 - legato * .5 => adsrs[i].gain;
                     }
                 }
             }
